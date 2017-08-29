@@ -1,6 +1,6 @@
 # FolsomPrison
 
-Folsom prison is a tty  tty login spoofer written in C.
+Folsom prison is a tty login spoofer written in C.
 
 The concept is simple - the attacker logs in his/her account and leaves folsomprison running.
 
