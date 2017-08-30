@@ -123,8 +123,8 @@ int main(int argc, char *argv[])
 
       if (ret == 0)
 	{
-	  printf("Login incorrect\n");
 	  sleep(2);
+	  printf("Login incorrect\n");
 	}
       else if (ret == 1) continue;
       else if (ret == -1) break;
